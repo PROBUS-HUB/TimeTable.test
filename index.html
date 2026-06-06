@@ -164,6 +164,17 @@ textarea.form-input { resize:none; line-height:1.6; }
 .search-result-bar.show { display:block; }
 .search-hit { background:#fff8c5; }
 
+/* 郵便番号 */
+.zip-wrap { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+.zip-input { width:130px; padding:11px 12px; font-size:15px; border:1px solid #ddd; border-radius:10px; outline:none; background:#fafafa; color:#1a1a1a; transition:border-color .15s; }
+.zip-input:focus { border-color:#1a1a1a; background:#fff; }
+.btn-zip-search { padding:11px 14px; font-size:13px; font-weight:600; background:#1a1a1a; color:#fff; border:none; border-radius:10px; cursor:pointer; white-space:nowrap; }
+.btn-zip-search:active { opacity:.8; }
+.zip-status { font-size:12px; margin-top:4px; min-height:16px; }
+.zip-status.ok  { color:#27ae60; }
+.zip-status.err { color:#c0392b; }
+.zip-status.loading { color:#888; }
+
 /* マップ画面 */
 .map-screen { display:none; }
 .map-header { display:flex; align-items:center; justify-content:space-between; background:#4285F4; color:#fff; padding:14px 16px; position:sticky; top:0; z-index:100; }
@@ -327,7 +338,13 @@ textarea.form-input { resize:none; line-height:1.6; }
     <div class="card"><p class="card-label">お客様名 *</p>
       <input type="text" id="f-name" class="form-input" placeholder="例：株式会社〇〇" />
     </div>
-    <div class="card"><p class="card-label">住所</p>
+    <div class="card">
+      <p class="card-label">住所</p>
+      <div class="zip-wrap">
+        <input type="tel" id="f-zip" class="zip-input" placeholder="〒 1234567" maxlength="8" inputmode="numeric" oninput="onZipInput(this)" />
+        <button class="btn-zip-search" onclick="searchZip()">住所を検索</button>
+      </div>
+      <div class="zip-status" id="zip-status"></div>
       <input type="text" id="f-address" class="form-input" placeholder="例：福岡県福岡市博多区〇〇" />
       <button class="btn-map-full" onclick="openMapFromInput()">Googleマップで確認</button>
     </div>
@@ -710,6 +727,8 @@ function openForm(id) {
     const v=visits.find(x=>x.id===id);
     if(v){
       document.getElementById('f-id').value       = v.customId||'';
+      document.getElementById('f-zip').value       = v.zipcode||'';
+      document.getElementById('zip-status').textContent = '';
       document.getElementById('f-datetime').value  = v.datetime||'';
       document.getElementById('f-name').value      = v.name||'';
       document.getElementById('f-address').value   = v.address||'';
@@ -723,6 +742,8 @@ function openForm(id) {
     const now=new Date(); now.setMinutes(Math.ceil(now.getMinutes()/15)*15,0,0);
     const pad=n=>String(n).padStart(2,'0');
     document.getElementById('f-id').value       = '';
+    document.getElementById('f-zip').value       = '';
+    document.getElementById('zip-status').textContent = '';
     document.getElementById('f-datetime').value =
       `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
     document.getElementById('f-name').value    = '';
@@ -737,6 +758,7 @@ function openForm(id) {
 function closeForm() { showScreen('main-screen'); renderList(); }
 function saveVisit() {
   const customId  = document.getElementById('f-id').value.trim();
+  const zipcode   = document.getElementById('f-zip').value.replace(/[^0-9]/g,'');
   const datetime  = document.getElementById('f-datetime').value.trim();
   const name      = document.getElementById('f-name').value.trim();
   const address   = document.getElementById('f-address').value.trim();
@@ -759,10 +781,10 @@ function saveVisit() {
   errEl.textContent='';
   if(editingVisitId){
     const idx=visits.findIndex(x=>x.id===editingVisitId);
-    if(idx>=0) visits[idx]={...visits[idx],customId,datetime,name,address,tel,memo,
+    if(idx>=0) visits[idx]={...visits[idx],customId,zipcode,datetime,name,address,tel,memo,
       reward,status:selectedStatus,photo:currentPhotoData||visits[idx].photo||null};
   } else {
-    visits.push({id:Date.now().toString(),customId,datetime,name,address,tel,memo,
+    visits.push({id:Date.now().toString(),customId,zipcode,datetime,name,address,tel,memo,
       reward,status:selectedStatus,photo:currentPhotoData||null});
   }
   saveData(); showScreen('main-screen'); renderList(); updateStats();
@@ -1075,6 +1097,51 @@ function renderList() {
 
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
+
+// ===== 郵便番号検索（zipcloud API）=====
+function onZipInput(el) {
+  // ハイフン自動挿入（3桁後）
+  let v = el.value.replace(/[^0-9]/g, '');
+  if (v.length > 3) v = v.slice(0,3) + '-' + v.slice(3,7);
+  el.value = v;
+  // 7桁揃ったら自動検索
+  if (v.replace('-','').length === 7) searchZip();
+}
+
+async function searchZip() {
+  const raw = document.getElementById('f-zip').value.replace(/[^0-9]/g,'');
+  const statusEl = document.getElementById('zip-status');
+  if (raw.length !== 7) {
+    statusEl.className = 'zip-status err';
+    statusEl.textContent = '7桁の郵便番号を入力してください';
+    return;
+  }
+  statusEl.className = 'zip-status loading';
+  statusEl.textContent = '検索中...';
+  try {
+    const res = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${raw}`);
+    const data = await res.json();
+    if (data.status === 200 && data.results) {
+      const r = data.results[0];
+      const addr = (r.address1||'') + (r.address2||'') + (r.address3||'');
+      const current = document.getElementById('f-address').value;
+      // 既存入力がなければ自動セット、あれば末尾に補完
+      if (!current.trim()) {
+        document.getElementById('f-address').value = addr;
+      } else if (!current.includes(r.address1||'')) {
+        document.getElementById('f-address').value = addr + ' ' + current;
+      }
+      statusEl.className = 'zip-status ok';
+      statusEl.textContent = `✓ ${addr}`;
+    } else {
+      statusEl.className = 'zip-status err';
+      statusEl.textContent = '該当する住所が見つかりませんでした';
+    }
+  } catch(e) {
+    statusEl.className = 'zip-status err';
+    statusEl.textContent = '検索に失敗しました（通信エラー）';
+  }
+}
 
 // ===== マップ画面 =====
 let mapFilter = 'all';

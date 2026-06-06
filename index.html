@@ -752,7 +752,7 @@ function saveAdvance() {
   saveData(); showScreen('main-screen'); switchTab('reward'); updateStats();
 }
 function deleteAdvance(id) {
-  if(!confirm('この前借り記録を削除しますか？'))return;
+  if(!confirm('この前払い記録を削除しますか？'))return;
   advances=advances.filter(x=>x.id!==id);
   saveData(); renderList(); updateStats();
 }

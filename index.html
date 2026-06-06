@@ -164,6 +164,30 @@ textarea.form-input { resize:none; line-height:1.6; }
 .search-result-bar.show { display:block; }
 .search-hit { background:#fff8c5; }
 
+/* マップ画面 */
+.map-screen { display:none; }
+.map-header { display:flex; align-items:center; justify-content:space-between; background:#4285F4; color:#fff; padding:14px 16px; position:sticky; top:0; z-index:100; }
+.map-header-title { font-size:16px; font-weight:600; }
+.map-legend { display:flex; gap:12px; padding:8px 16px; background:#fff; border-bottom:1px solid #e8e8e6; font-size:11px; align-items:center; flex-wrap:wrap; }
+.legend-item { display:flex; align-items:center; gap:4px; }
+.legend-dot { width:12px; height:12px; border-radius:50%; flex-shrink:0; }
+.legend-dot.unvisited { background:#e74c3c; }
+.legend-dot.visited   { background:#27ae60; }
+#map-frame { width:100%; height:calc(100vh - 110px); border:none; }
+.map-pin-list { max-width:480px; margin:0 auto; padding:12px 16px; }
+.map-pin-item { display:flex; align-items:center; gap:10px; background:#fff; border-radius:10px; border:1px solid #e8e8e6; padding:10px 12px; margin-bottom:8px; }
+.map-pin-dot { width:14px; height:14px; border-radius:50%; flex-shrink:0; }
+.map-pin-dot.unvisited { background:#e74c3c; }
+.map-pin-dot.visited   { background:#27ae60; }
+.map-pin-info { flex:1; min-width:0; }
+.map-pin-name { font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.map-pin-addr { font-size:11px; color:#888; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.map-pin-open { font-size:11px; padding:5px 10px; background:#4285F4; color:#fff; border:none; border-radius:6px; cursor:pointer; white-space:nowrap; flex-shrink:0; }
+.map-empty { text-align:center; padding:40px; color:#bbb; font-size:14px; }
+.map-filter-bar { display:flex; gap:6px; padding:8px 16px; background:#f5f5f3; border-bottom:1px solid #e8e8e6; }
+.map-filter-btn { flex:1; padding:7px 4px; font-size:12px; font-weight:600; border:1px solid #ddd; border-radius:8px; background:#fff; color:#888; cursor:pointer; }
+.map-filter-btn.active { background:#1a1a1a; color:#fff; border-color:#1a1a1a; }
+
 /* PWAヒント */
 .pwa-hint { background:#fff; border-radius:12px; border:1px solid #e8e8e6; padding:12px 14px; margin-bottom:12px; font-size:12px; color:#888; line-height:1.6; }
 .pwa-hint strong { color:#1a1a1a; }
@@ -177,6 +201,7 @@ textarea.form-input { resize:none; line-height:1.6; }
     <span class="header-title">📋 予定管理台帳</span>
     <div class="header-right">
       <span class="header-date" id="header-date"></span>
+      <button class="btn-settings" onclick="openMapScreen()" title="マップ">🗺️</button>
       <button class="btn-settings" onclick="toggleSearch()" title="検索">🔍</button>
       <button class="btn-settings" onclick="openSettings()" title="設定">⚙️</button>
     </div>
@@ -502,7 +527,7 @@ function setPhotoPreview(dataUrl) {
 }
 
 // ===== 画面切替 =====
-const SCREENS = ['main-screen','form-screen','reward-form-screen','advance-form-screen','settings-screen'];
+const SCREENS = ['main-screen','form-screen','reward-form-screen','advance-form-screen','settings-screen','map-screen'];
 function showScreen(name) {
   SCREENS.forEach(id => document.getElementById(id).style.display = 'none');
   document.getElementById(name).style.display = 'block';
@@ -722,6 +747,15 @@ function saveVisit() {
   const errEl     = document.getElementById('form-error');
   if(!datetime){errEl.textContent='訪問日時を入力してください';return;}
   if(!name){errEl.textContent='お客様名を入力してください';return;}
+  // ID重複チェック（空欄はスキップ、編集中の自分自身は除外）
+  if(customId){
+    const dup = visits.find(x => x.customId === customId && x.id !== editingVisitId);
+    if(dup){
+      errEl.textContent=`ID「${customId}」はすでに登録されています（${dup.name}）`;
+      document.getElementById('f-id').focus();
+      return;
+    }
+  }
   errEl.textContent='';
   if(editingVisitId){
     const idx=visits.findIndex(x=>x.id===editingVisitId);
@@ -834,6 +868,8 @@ function toggleStatus(id) {
   const v=visits.find(x=>x.id===id); if(!v)return;
   v.status=v.status===1?0:1;
   saveData(); renderList(); updateStats();
+  // マップ画面が開いていれば再描画
+  if(document.getElementById('map-screen').style.display==='block') renderMapPins();
 }
 
 // ===== マップ =====
@@ -1039,6 +1075,72 @@ function renderList() {
 
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
+
+// ===== マップ画面 =====
+let mapFilter = 'all';
+
+function openMapScreen() {
+  renderMapPins();
+  showScreen('map-screen');
+}
+function closeMapScreen() {
+  showScreen('main-screen');
+  renderList();
+}
+function setMapFilter(f) {
+  mapFilter = f;
+  ['all','unvisited','today'].forEach(k => {
+    document.getElementById('mf-'+k).classList.toggle('active', k===f);
+  });
+  renderMapPins();
+}
+
+function getMapVisits() {
+  const today = todayStr();
+  let base = visits.filter(v => v.address && v.address.trim());
+  if (mapFilter === 'unvisited') base = base.filter(v => v.status !== 1);
+  if (mapFilter === 'today')     base = base.filter(v => toDateStr(v.datetime) === today);
+  return base;
+}
+
+function renderMapPins() {
+  const list = document.getElementById('map-pin-list');
+  const pins = getMapVisits();
+  if (pins.length === 0) {
+    list.innerHTML = '<div class="map-empty">表示できる住所がありません<br><span style="font-size:12px;">（住所が登録されている予定のみ表示）</span></div>';
+    document.getElementById('map-multi-btn-wrap').style.display = 'none';
+    return;
+  }
+  document.getElementById('map-multi-btn-wrap').style.display = 'block';
+  list.innerHTML = pins.map(v => `
+    <div class="map-pin-item" id="pin-${v.id}">
+      <span class="map-pin-dot ${v.status===1?'visited':'unvisited'}"></span>
+      <div class="map-pin-info">
+        <div class="map-pin-name">${esc(v.name)}${v.customId?' <span style="font-size:10px;color:#aaa;">ID:'+esc(v.customId)+'</span>':''}</div>
+        <div class="map-pin-addr">📍 ${esc(v.address)}</div>
+        <div style="font-size:11px;color:#aaa;margin-top:2px;">${formatDT(v.datetime)}</div>
+      </div>
+      <button class="map-pin-open" onclick="openMap('${esc(v.address)}')">開く</button>
+    </div>
+  `).join('');
+}
+
+function openMultiMap() {
+  const pins = getMapVisits().filter(v => v.status !== 1);
+  if (pins.length === 0) { alert('未訪問の住所がありません'); return; }
+  // Google Maps で複数地点をウェイポイントとして開く（最大10件）
+  const addrs = pins.slice(0, 10).map(v => encodeURIComponent(v.address));
+  let url;
+  if (addrs.length === 1) {
+    url = `https://maps.google.com/?q=${addrs[0]}`;
+  } else {
+    const dest = addrs[addrs.length - 1];
+    const waypoints = addrs.slice(0, -1).join('/');
+    url = `https://www.google.com/maps/dir/${waypoints}/${dest}`;
+  }
+  window.open(url, '_blank');
+}
+
 // ===== 初期化 =====
 function init(){
   loadData();
@@ -1053,5 +1155,29 @@ function init(){
 }
 init();
 </script>
+<!-- ===== マップ画面 ===== -->
+<div id="map-screen" class="map-screen">
+  <div class="map-header">
+    <button class="btn-back" onclick="closeMapScreen()" style="color:#ffffffaa;">← 戻る</button>
+    <span class="map-header-title">🗺️ 訪問マップ</span>
+    <span style="width:48px;"></span>
+  </div>
+  <div class="map-filter-bar">
+    <button class="map-filter-btn active" id="mf-all"       onclick="setMapFilter('all')">すべて</button>
+    <button class="map-filter-btn"        id="mf-unvisited" onclick="setMapFilter('unvisited')">未訪問のみ</button>
+    <button class="map-filter-btn"        id="mf-today"     onclick="setMapFilter('today')">今日のみ</button>
+  </div>
+  <div class="map-legend">
+    <span class="legend-item"><span class="legend-dot unvisited"></span>未訪問</span>
+    <span class="legend-item"><span class="legend-dot visited"></span>訪問済（参考表示）</span>
+    <span style="font-size:11px;color:#aaa;margin-left:auto;">訪問済みにするとピンが消えます</span>
+  </div>
+  <div class="map-pin-list" id="map-pin-list"></div>
+  <div id="map-multi-btn-wrap" style="max-width:480px;margin:0 auto;padding:0 16px 16px;">
+    <button class="btn-primary" style="background:#4285F4;" onclick="openMultiMap()">📍 まとめてマップで開く</button>
+  </div>
+</div>
+
+
 </body>
 </html>

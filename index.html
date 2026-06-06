@@ -199,6 +199,20 @@ textarea.form-input { resize:none; line-height:1.6; }
 .map-filter-btn { flex:1; padding:7px 4px; font-size:12px; font-weight:600; border:1px solid #ddd; border-radius:8px; background:#fff; color:#888; cursor:pointer; }
 .map-filter-btn.active { background:#1a1a1a; color:#fff; border-color:#1a1a1a; }
 
+/* 複数写真 */
+.photo-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-bottom:8px; }
+.photo-thumb { position:relative; aspect-ratio:1; border-radius:8px; overflow:hidden; background:#f0f0f0; }
+.photo-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+.photo-thumb-del { position:absolute; top:3px; right:3px; width:20px; height:20px; border-radius:50%; background:rgba(0,0,0,.55); color:#fff; border:none; font-size:12px; cursor:pointer; display:flex; align-items:center; justify-content:center; line-height:1; }
+.photo-add-slot { aspect-ratio:1; border:2px dashed #ddd; border-radius:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; background:#fafafa; gap:2px; }
+.photo-add-slot:active { background:#f0f0f0; }
+.photo-add-icon { font-size:22px; }
+.photo-add-text { font-size:10px; color:#aaa; }
+.photo-count { font-size:11px; color:#888; margin-bottom:6px; }
+/* 訪問カード内の写真グリッド */
+.card-photo-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:4px; margin-bottom:8px; }
+.card-photo-grid img { width:100%; aspect-ratio:1; object-fit:cover; border-radius:6px; cursor:pointer; }
+
 /* PWAヒント */
 .pwa-hint { background:#fff; border-radius:12px; border:1px solid #e8e8e6; padding:12px 14px; margin-bottom:12px; font-size:12px; color:#888; line-height:1.6; }
 .pwa-hint strong { color:#1a1a1a; }
@@ -359,14 +373,10 @@ textarea.form-input { resize:none; line-height:1.6; }
         <input type="number" id="f-reward" class="form-input green" placeholder="例：5000" min="0" inputmode="numeric" />
       </div>
     </div>
-    <div class="card"><p class="card-label">写真</p>
-      <input type="file" id="f-photo" accept="image/*" />
-      <div class="photo-upload-area" id="photo-upload-area" onclick="document.getElementById('f-photo').click()">
-        <div class="pua-icon">📷</div>
-        <div class="pua-text"><strong>写真を追加</strong><br>タップしてカメラまたはライブラリから選択</div>
-      </div>
-      <img id="f-photo-preview" src="" alt="プレビュー" />
-      <button class="btn-photo-remove" id="btn-photo-remove" onclick="removePhoto()">✕ 写真を削除</button>
+    <div class="card">
+      <p class="card-label">写真 <span class="photo-count" id="photo-count">0 / 5枚</span></p>
+      <input type="file" id="f-photo" accept="image/*" style="display:none;" />
+      <div class="photo-grid" id="photo-grid"></div>
     </div>
     <div class="card"><p class="card-label">ステータス</p>
       <div class="status-btns">
@@ -480,7 +490,7 @@ let editingRewardId  = null;
 let currentTab    = 'today';
 let selectedStatus       = 0;
 let selectedRewardStatus = 1; // 報酬はデフォルト確定済
-let currentPhotoData = null;
+let currentPhotos = []; // 最大5枚のBase64配列
 let currentMonth = (() => {
   const n = new Date();
   return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`;
@@ -500,10 +510,23 @@ function saveData() {
   try { localStorage.setItem(KEY_SETTINGS, JSON.stringify(settings)); } catch(e) {}
 }
 
-// ===== 写真 =====
+// ===== 写真（最大5枚）=====
+const MAX_PHOTOS = 5;
+
 document.getElementById('f-photo').addEventListener('change', function(e) {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
+  this.value = ''; // 同じ写真も再選択できるようリセット
+  if (currentPhotos.length >= MAX_PHOTOS) {
+    alert(`写真は最大${MAX_PHOTOS}枚までです`); return;
+  }
+  compressImage(file, dataUrl => {
+    currentPhotos.push(dataUrl);
+    renderPhotoGrid();
+  });
+});
+
+function compressImage(file, cb) {
   const reader = new FileReader();
   reader.onload = ev => {
     const img = new Image();
@@ -511,36 +534,63 @@ document.getElementById('f-photo').addEventListener('change', function(e) {
       const canvas = document.createElement('canvas');
       const MAX = 1200;
       let w = img.width, h = img.height;
-      if (w > MAX || h > MAX) { if (w>h){h=Math.round(h*MAX/w);w=MAX;}else{w=Math.round(w*MAX/h);h=MAX;} }
+      if (w > MAX || h > MAX) { if(w>h){h=Math.round(h*MAX/w);w=MAX;}else{w=Math.round(w*MAX/h);h=MAX;} }
       canvas.width=w; canvas.height=h;
       canvas.getContext('2d').drawImage(img,0,0,w,h);
-      currentPhotoData = canvas.toDataURL('image/jpeg',0.8);
-      document.getElementById('f-photo-preview').src = currentPhotoData;
-      document.getElementById('f-photo-preview').style.display = 'block';
-      document.getElementById('btn-photo-remove').style.display = 'block';
-      document.getElementById('photo-upload-area').style.display = 'none';
+      cb(canvas.toDataURL('image/jpeg', 0.8));
     };
     img.src = ev.target.result;
   };
   reader.onerror = () => alert('写真の読み込みに失敗しました。');
   reader.readAsDataURL(file);
-});
-function removePhoto() {
-  currentPhotoData = null;
-  document.getElementById('f-photo').value = '';
-  document.getElementById('f-photo-preview').src = '';
-  document.getElementById('f-photo-preview').style.display = 'none';
-  document.getElementById('btn-photo-remove').style.display = 'none';
-  document.getElementById('photo-upload-area').style.display = 'block';
 }
-function resetPhotoUI() { removePhoto(); }
-function setPhotoPreview(dataUrl) {
-  if (!dataUrl) { resetPhotoUI(); return; }
-  currentPhotoData = dataUrl;
-  document.getElementById('f-photo-preview').src = dataUrl;
-  document.getElementById('f-photo-preview').style.display = 'block';
-  document.getElementById('btn-photo-remove').style.display = 'block';
-  document.getElementById('photo-upload-area').style.display = 'none';
+
+function renderPhotoGrid() {
+  const grid = document.getElementById('photo-grid');
+  const count = document.getElementById('photo-count');
+  count.textContent = `${currentPhotos.length} / ${MAX_PHOTOS}枚`;
+  let html = currentPhotos.map((src, i) => `
+    <div class="photo-thumb">
+      <img src="${src}" alt="写真${i+1}" onclick="viewPhoto('${i}')" />
+      <button class="photo-thumb-del" onclick="removePhoto(${i})">✕</button>
+    </div>`).join('');
+  // 追加スロット
+  if (currentPhotos.length < MAX_PHOTOS) {
+    html += `<div class="photo-add-slot" onclick="document.getElementById('f-photo').click()">
+      <span class="photo-add-icon">📷</span>
+      <span class="photo-add-text">追加</span>
+    </div>`;
+  }
+  grid.innerHTML = html;
+}
+
+function removePhoto(idx) {
+  currentPhotos.splice(idx, 1);
+  renderPhotoGrid();
+}
+
+function viewPhoto(idx) {
+  // 拡大表示
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  overlay.onclick = () => document.body.removeChild(overlay);
+  const img = document.createElement('img');
+  img.src = currentPhotos[idx];
+  img.style.cssText = 'max-width:95vw;max-height:90vh;border-radius:8px;object-fit:contain;';
+  overlay.appendChild(img);
+  document.body.appendChild(overlay);
+}
+
+function resetPhotoUI() {
+  currentPhotos = [];
+  renderPhotoGrid();
+}
+
+function setPhotoPreviews(photos) {
+  // photos: 配列 or 後方互換で文字列（1枚）
+  if (!photos) { resetPhotoUI(); return; }
+  currentPhotos = Array.isArray(photos) ? [...photos] : [photos];
+  renderPhotoGrid();
 }
 
 // ===== 画面切替 =====
@@ -736,7 +786,7 @@ function openForm(id) {
       document.getElementById('f-memo').value      = v.memo||'';
       document.getElementById('f-reward').value    = v.reward!=null?v.reward:'';
       selectStatus(v.status||0);
-      if(v.photo) setPhotoPreview(v.photo);
+      setPhotoPreviews(v.photos || (v.photo ? [v.photo] : [])); // 後方互換
     }
   } else {
     const now=new Date(); now.setMinutes(Math.ceil(now.getMinutes()/15)*15,0,0);
@@ -764,6 +814,7 @@ function saveVisit() {
   const address   = document.getElementById('f-address').value.trim();
   const tel       = document.getElementById('f-tel').value.trim();
   const memo      = document.getElementById('f-memo').value.trim();
+  const photos    = [...currentPhotos];
   const rewardRaw = document.getElementById('f-reward').value.trim();
   const reward    = rewardRaw !== '' ? parseInt(rewardRaw, 10) : null;
   const errEl     = document.getElementById('form-error');
@@ -782,10 +833,10 @@ function saveVisit() {
   if(editingVisitId){
     const idx=visits.findIndex(x=>x.id===editingVisitId);
     if(idx>=0) visits[idx]={...visits[idx],customId,zipcode,datetime,name,address,tel,memo,
-      reward,status:selectedStatus,photo:currentPhotoData||visits[idx].photo||null};
+      reward,status:selectedStatus,photos};
   } else {
     visits.push({id:Date.now().toString(),customId,zipcode,datetime,name,address,tel,memo,
-      reward,status:selectedStatus,photo:currentPhotoData||null});
+      reward,status:selectedStatus,photos});
   }
   saveData(); showScreen('main-screen'); renderList(); updateStats();
 }
@@ -1206,6 +1257,17 @@ function openMultiMap() {
     url = `https://www.google.com/maps/dir/${waypoints}/${dest}`;
   }
   window.open(url, '_blank');
+}
+
+function viewCardPhoto(src) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  overlay.onclick = () => document.body.removeChild(overlay);
+  const img = document.createElement('img');
+  img.src = src;
+  img.style.cssText = 'max-width:95vw;max-height:90vh;border-radius:8px;object-fit:contain;';
+  overlay.appendChild(img);
+  document.body.appendChild(overlay);
 }
 
 // ===== 初期化 =====

@@ -543,6 +543,20 @@ input[type="datetime-local"], input[type="search"] {
   </div>
   <div class="wrap">
 
+    <!-- 総合ダッシュボード -->
+    <div class="card">
+      <p class="card-label">総合データ一覧</p>
+      <p style="font-size:12px;color:#aaa;margin-bottom:10px;">登録済みの全データを月別で確認できます</p>
+      <div style="display:flex;align-items:center;justify-content:space-between;background:#f5f5f3;border-radius:10px;padding:8px 12px;margin-bottom:10px;">
+        <button onclick="dashChangeMonth(-1)" style="background:none;border:none;font-size:20px;cursor:pointer;color:#1a1a1a;padding:2px 8px;">‹</button>
+        <span id="dash-month-label" style="font-size:14px;font-weight:700;"></span>
+        <button onclick="dashChangeMonth(1)"  style="background:none;border:none;font-size:20px;cursor:pointer;color:#1a1a1a;padding:2px 8px;">›</button>
+      </div>
+      <button onclick="renderDashboard()" style="width:100%;padding:10px;font-size:14px;font-weight:600;background:#1a1a1a;color:#fff;border:none;border-radius:10px;cursor:pointer;margin-bottom:12px;">🔄 表示する</button>
+      <div id="dashboard-wrap"></div>
+    </div>
+
+    <!-- 報酬サイクル設定 -->
     <!-- 締め日・支払日設定（新規追加） -->
     <div class="card">
       <p class="card-label">報酬サイクル設定</p>
@@ -565,6 +579,7 @@ input[type="datetime-local"], input[type="search"] {
       <button class="btn-primary" style="margin-top:12px;margin-bottom:0;" onclick="saveCycleSettings()">保存する</button>
     </div>
 
+    <!-- 週の起算日 -->
     <div class="card">
       <p class="card-label">週の起算日</p>
       <p style="font-size:12px;color:#aaa;margin-bottom:10px;">「今週」タブの集計開始曜日を設定します</p>
@@ -574,10 +589,11 @@ input[type="datetime-local"], input[type="search"] {
         <button class="wd-btn" id="wdbtn-6" onclick="setWeekStart(6)">土曜日</button>
       </div>
     </div>
+
     <!-- CSV エクスポート -->
     <div class="card">
       <p class="card-label">CSVエクスポート</p>
-      <p style="font-size:12px;color:#aaa;margin-bottom:12px;">訪問予定・報酬・前払い請求のデータをCSVファイルとしてダウンロードします。Excelで開いて確認したり、バックアップとして保存できます。</p>
+      <p style="font-size:12px;color:#aaa;margin-bottom:12px;">訪問予定・報酬・前払い請求のデータをCSVとして出力できます。</p>
       <button class="btn-primary" style="background:#2980b9;margin-bottom:8px;" onclick="exportCSV('visits')">📋 訪問予定をエクスポート</button>
       <button class="btn-primary" style="background:#27ae60;margin-bottom:8px;" onclick="exportCSV('rewards')">💰 報酬データをエクスポート</button>
       <button class="btn-primary" style="background:#e67e22;margin-bottom:8px;" onclick="exportCSV('advances')">💸 前払い請求をエクスポート</button>
@@ -594,32 +610,12 @@ input[type="datetime-local"], input[type="search"] {
       <p id="csv-import-status" style="font-size:12px;margin-top:8px;min-height:16px;"></p>
     </div>
 
-    <!-- 総合ダッシュボード -->
-    <div class="card">
-      <p class="card-label">総合データ一覧</p>
-      <p style="font-size:12px;color:#aaa;margin-bottom:10px;">月別サマリーと全データの明細をまとめて確認できます</p>
-
-      <!-- 月選択 -->
-      <div style="display:flex;align-items:center;justify-content:space-between;background:#f5f5f3;border-radius:10px;padding:8px 12px;margin-bottom:10px;">
-        <button onclick="dashChangeMonth(-1)" style="background:none;border:none;font-size:20px;cursor:pointer;color:#1a1a1a;padding:2px 8px;">‹</button>
-        <span id="dash-month-label" style="font-size:14px;font-weight:700;"></span>
-        <button onclick="dashChangeMonth(1)"  style="background:none;border:none;font-size:20px;cursor:pointer;color:#1a1a1a;padding:2px 8px;">›</button>
-      </div>
-
-      <button onclick="renderDashboard()" style="width:100%;padding:10px;font-size:14px;font-weight:600;background:#1a1a1a;color:#fff;border:none;border-radius:10px;cursor:pointer;margin-bottom:12px;">🔄 表示する</button>
-
-      <div id="dashboard-wrap"></div>
-    </div>
-
-    </div>
-
     <div class="card" style="background:#f9f9f8;">
       <p class="card-label">データ管理</p>
       <button class="btn-primary" style="margin-bottom:0;background:#c0392b;" onclick="clearAllData()">すべてのデータを削除</button>
     </div>
   </div>
 </div>
-
 <script>
 // ===== キー・状態 =====
 const APP_VERSION   = '1.0.0'; // ← アップデート時にここを変更する

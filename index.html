@@ -315,12 +315,38 @@ input[type="datetime-local"], input[type="search"] {
 </head>
 <body>
 
+<!-- ===== ログイン画面 ===== -->
+<div id="login-screen" style="display:none;position:fixed;inset:0;background:#0d0d0f;z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;">
+  <div style="width:100%;max-width:360px;text-align:center;">
+    <div style="font-size:52px;margin-bottom:12px;">📋</div>
+    <div style="font-size:20px;font-weight:700;color:#c8a84b;margin-bottom:4px;">予定管理台帳</div>
+    <div style="font-size:12px;color:#666;margin-bottom:32px;">IDを入力してログインしてください</div>
+    <div style="background:#16161a;border:1px solid #2a2a32;border-radius:12px;padding:24px;">
+      <div style="font-size:11px;font-weight:700;color:#666;text-align:left;margin-bottom:6px;letter-spacing:.08em;">ユーザーID</div>
+      <input type="text" id="login-uid" placeholder="例：DRV-001"
+        style="width:100%;padding:12px 14px;font-size:16px;background:#0d0d0f;border:1px solid #2a2a32;border-radius:8px;color:#e8e8ec;outline:none;margin-bottom:10px;"
+        onkeydown="if(event.key==='Enter')document.getElementById('login-pw-field').focus()" />
+      <div style="font-size:11px;font-weight:700;color:#666;text-align:left;margin-bottom:6px;letter-spacing:.08em;">パスワード</div>
+      <input type="password" id="login-pw-field" placeholder="パスワードを入力"
+        style="width:100%;padding:12px 14px;font-size:16px;background:#0d0d0f;border:1px solid #2a2a32;border-radius:8px;color:#e8e8ec;outline:none;margin-bottom:16px;"
+        onkeydown="if(event.key==='Enter')doLogin()" />
+      <button onclick="doLogin()"
+        style="width:100%;padding:13px;font-size:15px;font-weight:700;background:#c8a84b;color:#1a1400;border:none;border-radius:8px;cursor:pointer;">
+        ログイン
+      </button>
+      <div id="login-msg" style="font-size:12px;color:#e05555;margin-top:10px;min-height:16px;"></div>
+    </div>
+    <div id="login-hint" style="font-size:11px;color:#444;margin-top:16px;line-height:1.7;"></div>
+  </div>
+</div>
+
+
 <!-- ===== メイン画面 ===== -->
 <div id="main-screen">
   <div class="header">
     <span class="header-title">📋 予定管理台帳</span>
     <div class="header-right">
-      <span class="header-date" id="header-date"></span>
+      <span class="header-date" id="header-date"></span><span id="header-user" style="font-size:11px;color:#888;"></span>
       <button class="btn-settings" onclick="openMapScreen()" title="マップ">🗺️</button>
       <button class="btn-settings" onclick="toggleSearch()" title="検索">🔍</button>
       <button class="btn-settings" onclick="openSettingsWithLock()" title="設定">⚙️</button>
@@ -2704,6 +2730,94 @@ function viewCardPhoto(src) {
 }
 
 // ===== 初期化 =====
+
+// ===== ユーザーログイン管理 =====
+let currentUser = null; // { uid, name, password, expiryDate }
+
+// config.json からユーザー一覧を取得してログイン画面を表示
+async function initLogin() {
+  // localStorageにログイン済みセッションがあれば復元
+  const saved = sessionStorage.getItem('yotei_login');
+  if (saved) {
+    try {
+      currentUser = JSON.parse(saved);
+      // config.jsonで有効性を再確認
+      await loadRemoteConfig();
+      if (validateCurrentUser()) {
+        showMainScreen();
+        return;
+      }
+    } catch(e) {}
+  }
+  // ログイン画面を表示
+  await loadRemoteConfig();
+  showLoginScreen();
+}
+
+function showLoginScreen() {
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('main-screen').style.display  = 'none';
+  // config.jsonなし（ローカル直開き）の場合はログインをスキップ
+  if (!window._remoteUsers) {
+    skipLogin();
+    return;
+  }
+  document.getElementById('login-uid').focus();
+}
+
+function showMainScreen() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('main-screen').style.display  = 'block';
+}
+
+// config.jsonなし環境はログインスキップ
+function skipLogin() {
+  currentUser = { uid: 'LOCAL', name: 'ローカルユーザー', password: '', expiryDate: '' };
+  showMainScreen();
+}
+
+function doLogin() {
+  const uid = document.getElementById('login-uid').value.trim();
+  const pw  = document.getElementById('login-pw-field').value;
+  const msg = document.getElementById('login-msg');
+
+  if (!uid || !pw) { msg.textContent = 'IDとパスワードを入力してください'; return; }
+
+  const users = window._remoteUsers || [];
+  const user  = users.find(u => u.uid === uid);
+
+  if (!user) { msg.textContent = 'IDが見つかりません'; return; }
+  if (user.password !== pw) { msg.textContent = 'パスワードが正しくありません'; return; }
+
+  // 有効期限チェック
+  if (user.expiryDate) {
+    const expired = new Date(user.expiryDate + 'T23:59:59') < new Date();
+    if (expired) {
+      msg.textContent = '利用期限が切れています。管理者にお問い合わせください。';
+      return;
+    }
+  }
+
+  // ログイン成功
+  currentUser = user;
+  sessionStorage.setItem('yotei_login', JSON.stringify(user));
+  msg.textContent = '';
+  showMainScreen();
+  updateTrialBanner();
+}
+
+function validateCurrentUser() {
+  if (!currentUser) return false;
+  const users = window._remoteUsers || [];
+  if (users.length === 0) return true; // config.jsonなし環境はOK
+  const user = users.find(u => u.uid === currentUser.uid);
+  if (!user || user.password !== currentUser.password) return false;
+  if (user.expiryDate) {
+    return new Date(user.expiryDate + 'T23:59:59') >= new Date();
+  }
+  return true;
+}
+
 // ===== config.json 読み込み（管理者設定を反映）=====
 async function loadRemoteConfig() {
   try {
@@ -2711,11 +2825,15 @@ async function loadRemoteConfig() {
     if (!res.ok) return; // ファイルなければスキップ
     const cfg = await res.json();
     // パスワードを上書き
-    if (cfg.userPassword) {
+    // v2形式：ユーザー一覧
+    if (cfg.users && Array.isArray(cfg.users)) {
+      window._remoteUsers = cfg.users;
+    }
+    // v1形式との後方互換（共通パスワード）
+    if (cfg.userPassword && !cfg.users) {
       Object.defineProperty(window, '_remotePassword', { value: cfg.userPassword, writable: true });
     }
-    // 有効期限を上書き（管理者が設定した期限を優先）
-    if (cfg.expiryDate) {
+    if (cfg.expiryDate && !cfg.users) {
       settings.unlockExpiry = cfg.expiryDate;
       saveData();
     }
@@ -2745,7 +2863,18 @@ function init(){
   if (annualLabelEl) annualLabelEl.textContent = annualYear + '年';
   renderList();
 }
-init();
+
+// ログイン確認後にinit実行
+async function startApp() {
+  await initLogin();
+  init();
+  // ヘッダーにユーザー名を表示
+  if (currentUser && currentUser.name) {
+    const el = document.getElementById('header-user');
+    if (el) el.textContent = currentUser.name;
+  }
+}
+startApp();
 </script>
 
 <!-- ===== マップ画面 ===== -->

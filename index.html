@@ -2029,7 +2029,7 @@ function showLockScreen(target) {
 
 function submitLockPassword(target) {
   const pw = document.getElementById('lock-pw-input').value;
-  if (pw === LOCK_PASSWORD) {
+  if (pw === getEffectivePassword()) {
     // 翌月同日を有効期限として保存
     const now     = new Date();
     const expDate = new Date(now.getFullYear(), now.getMonth()+1, now.getDate());
@@ -2704,8 +2704,34 @@ function viewCardPhoto(src) {
 }
 
 // ===== 初期化 =====
+// ===== config.json 読み込み（管理者設定を反映）=====
+async function loadRemoteConfig() {
+  try {
+    const res = await fetch('./config.json?t=' + Date.now(), { cache: 'no-store' });
+    if (!res.ok) return; // ファイルなければスキップ
+    const cfg = await res.json();
+    // パスワードを上書き
+    if (cfg.userPassword) {
+      Object.defineProperty(window, '_remotePassword', { value: cfg.userPassword, writable: true });
+    }
+    // 有効期限を上書き（管理者が設定した期限を優先）
+    if (cfg.expiryDate) {
+      settings.unlockExpiry = cfg.expiryDate;
+      saveData();
+    }
+  } catch(e) {
+    // config.json がない場合（ローカルファイル直開き等）は無視
+  }
+}
+
+// LOCK_PASSWORDの代わりにリモート設定パスワードを優先使用
+function getEffectivePassword() {
+  return (window._remotePassword) || LOCK_PASSWORD;
+}
+
 function init(){
   loadData();
+  loadRemoteConfig(); // 非同期で設定読み込み（画面描画はブロックしない）
   const now=new Date();
   document.getElementById('header-date').textContent =
     `${now.getMonth()+1}/${now.getDate()}(${['日','月','火','水','木','金','土'][now.getDay()]})`;

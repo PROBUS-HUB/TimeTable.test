@@ -1,5 +1,13 @@
 {
   "version": 2,
-  "updatedAt": "",
-  "users": []
+  "updatedAt": "2026-06-08T08:20:15.099Z",
+  "users": [
+    {
+      "uid": "tani",
+      "name": "タニ",
+      "password": "tani1212",
+      "expiryDate": "2026-08-12",
+      "memo": ""
+    }
+  ]
 }

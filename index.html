@@ -285,6 +285,10 @@ textarea.form-input{resize:none;line-height:1.6;}
 .update-toast-close{flex-shrink:0;background:none;border:none;color:rgba(255,255,255,.6);font-size:20px;cursor:pointer;padding:0 4px;line-height:1;}
 @keyframes slideDown{from{transform:translateX(-50%) translateY(-100%);}to{transform:translateX(-50%) translateY(0);}}
 
+
+/* 住所ピック地図 */
+#addr-pick-map { background:#e8f0f8; }
+
 /* ログイン画面 */
 #login-screen input{border:2px solid #334!important;border-radius:var(--radius-sm)!important;}
 #login-screen input:focus{border-color:var(--blue)!important;}
@@ -315,336 +319,32 @@ button{-webkit-tap-highlight-color:rgba(55,138,221,.15);touch-action:manipulatio
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="訪問予定">
 <title>予定管理台帳</title>
-<style>
-* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-body { font-family: 'Hiragino Kaku Gothic ProN','Hiragino Sans','Noto Sans JP',sans-serif; background: #f5f5f3; color: #1a1a1a; min-height: 100vh; padding-bottom: 60px; }
-.wrap { max-width: 480px; margin: 0 auto; padding: 16px; }
 
-/* ヘッダー */
-.header { display:flex; align-items:center; justify-content:space-between; background:#1a1a1a; color:#fff; padding:14px 16px; position:sticky; top:0; z-index:100; }
-.header-title { font-size:16px; font-weight:600; }
-.header-right { display:flex; align-items:center; gap:10px; }
-.header-date { font-size:12px; color:#aaa; }
-.btn-settings { font-size:18px; background:none; border:none; cursor:pointer; color:#aaa; padding:2px; }
-
-/* 統計 */
-.stats { display:grid; grid-template-columns:repeat(5,1fr); gap:4px; margin:12px 0; }
-.stat-card { background:#fff; border-radius:12px; border:1px solid #e8e8e6; padding:10px 4px; text-align:center; cursor:pointer; transition:border-color .15s; }
-.stat-card:active { border-color:#1a1a1a; }
-.stat-label { font-size:10px; color:#888; margin-bottom:4px; }
-.stat-num { font-size:16px; font-weight:700; color:#1a1a1a; }
-.stat-unit { font-size:10px; color:#bbb; }
-
-/* タブ */
-.tabs { display:grid; grid-template-columns:repeat(4,1fr); gap:4px; margin-bottom:10px; }
-.tab-btn { padding:9px 2px; font-size:11px; font-weight:600; background:#f5f5f3; color:#888; border:none; border-radius:10px; cursor:pointer; transition:background .15s; }
-.tab-btn.active { background:#1a1a1a; color:#fff; }
-.tab-btn.reward-tab.active { background:#27ae60; }
-.tab-btn.reward-tab { color:#27ae60; background:#edfbf2; border:1px solid #c3efd4; }
-
-/* 月選択 */
-.month-selector { display:none; align-items:center; justify-content:space-between; background:#fff; border-radius:12px; border:1px solid #e8e8e6; padding:10px 14px; margin-bottom:10px; }
-.month-selector.show { display:flex; }
-.month-nav { font-size:22px; background:none; border:none; cursor:pointer; color:#1a1a1a; padding:4px 12px; border-radius:8px; }
-.month-nav:active { background:#f0f0f0; }
-.month-label { font-size:15px; font-weight:700; }
-
-/* 報酬サマリー */
-.reward-summary { background:#fff; border-radius:14px; border:1px solid #e8e8e6; margin-bottom:10px; overflow:hidden; display:none; }
-.reward-summary.show { display:block; }
-.reward-summary-hd { background:#27ae60; color:#fff; padding:10px 16px; font-size:13px; font-weight:700; }
-.rs-rows { padding:4px 0; }
-.rs-row { display:flex; justify-content:space-between; align-items:center; padding:10px 16px; }
-.rs-row+.rs-row { border-top:1px solid #f0f0f0; }
-.rs-row.total { background:#f9f9f8; }
-.rs-label { font-size:13px; color:#555; }
-.rs-label.bold { font-weight:700; color:#1a1a1a; font-size:14px; }
-.rs-val { font-size:16px; font-weight:700; }
-.rs-val.planned { color:#bbb; }
-.rs-val.earned  { color:#27ae60; }
-.rs-val.advance { color:#e67e22; }
-.rs-val.bal-pos { color:#2980b9; }
-.rs-val.bal-neg { color:#c0392b; }
-
-/* カード */
-.card { background:#fff; border-radius:14px; border:1px solid #e8e8e6; padding:16px; margin-bottom:10px; }
-.card-label { font-size:12px; color:#888; margin-bottom:8px; }
-
-/* 訪問カード */
-.visit-card { background:#fff; border-radius:14px; border:1px solid #e8e8e6; padding:16px; margin-bottom:10px; }
-.visit-card.visited   { border-left:4px solid #27ae60; }
-.visit-card.unvisited { border-left:4px solid #e8e8e6; }
-.visit-head { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; }
-.visit-datetime { font-size:12px; color:#888; margin-bottom:2px; }
-.visit-name { font-size:16px; font-weight:600; }
-.status-badge { font-size:11px; font-weight:600; border-radius:20px; padding:4px 10px; cursor:pointer; border:1px solid; white-space:nowrap; flex-shrink:0; }
-.status-badge.unvisited { color:#888; border-color:#ddd; background:none; }
-.status-badge.visited   { color:#27ae60; border-color:#27ae60; background:none; }
-.visit-info { font-size:13px; color:#555; margin-bottom:3px; line-height:1.5; }
-.visit-memo { font-size:13px; color:#888; margin-bottom:4px; line-height:1.5; }
-.visit-photo { width:100%; border-radius:8px; object-fit:cover; max-height:180px; margin-bottom:8px; }
-.visit-actions { display:flex; gap:8px; margin-top:8px; }
-
-/* 報酬カード */
-.reward-card { background:#f4fbf6; border-radius:14px; border:1px solid #c3efd4; padding:14px 16px; margin-bottom:10px; }
-.reward-card-top { display:flex; justify-content:space-between; align-items:flex-start; }
-.reward-card-left .rc-tag { font-size:11px; font-weight:700; color:#27ae60; margin-bottom:3px; }
-.reward-card-left .rc-name { font-size:14px; font-weight:600; color:#1a1a1a; }
-.reward-card-left .rc-date { font-size:12px; color:#aaa; margin-top:2px; }
-.reward-card-left .rc-memo { font-size:12px; color:#888; margin-top:3px; }
-.rc-amount { font-size:20px; font-weight:700; color:#27ae60; white-space:nowrap; }
-.reward-actions { display:flex; gap:8px; margin-top:10px; }
-
-/* 前払い請求カード */
-.advance-card { background:#fff7ee; border-radius:14px; border:1px solid #f0c080; padding:14px 16px; margin-bottom:10px; }
-.advance-top { display:flex; justify-content:space-between; align-items:flex-start; }
-.ac-tag    { font-size:11px; font-weight:700; color:#e67e22; margin-bottom:3px; }
-.ac-date   { font-size:12px; color:#aaa; margin-bottom:3px; }
-.ac-memo   { font-size:12px; color:#888; }
-.ac-amount { font-size:20px; font-weight:700; color:#e67e22; white-space:nowrap; }
-.advance-actions { display:flex; gap:8px; margin-top:10px; }
-
-/* 報酬管理 セクション見出し */
-.section-head { font-size:12px; font-weight:700; color:#888; letter-spacing:0.05em; text-transform:uppercase; margin:14px 0 6px; padding-left:4px; }
-
-/* フォーム */
-.form-screen,.advance-form-screen,.reward-form-screen,.settings-screen { display:none; }
-.form-header { display:flex; align-items:center; justify-content:space-between; color:#fff; padding:14px 16px; position:sticky; top:0; z-index:100; margin-bottom:12px; }
-.fh-black  { background:#1a1a1a; }
-.fh-green  { background:#27ae60; }
-.fh-orange { background:#e67e22; }
-.fh-gray   { background:#555; }
-.form-title { font-size:16px; font-weight:600; }
-.btn-back { font-size:13px; background:none; border:none; cursor:pointer; padding:4px 8px; opacity:.7; }
-.form-input { width:100%; padding:11px 12px; font-size:15px; border:1px solid #ddd; border-radius:10px; outline:none; background:#fafafa; color:#1a1a1a; transition:border-color .15s; }
-.form-input:focus { border-color:#1a1a1a; background:#fff; }
-textarea.form-input { resize:none; line-height:1.6; }
-.form-input.green  { border-color:#a8d8b0; background:#f4fbf6; }
-.form-input.green:focus  { border-color:#27ae60; }
-.form-input.orange { border-color:#f0c080; background:#fff9f0; }
-.form-input.orange:focus { border-color:#e67e22; }
-.yen-wrap { position:relative; }
-.yen-wrap::before { content:'¥'; position:absolute; left:12px; top:50%; transform:translateY(-50%); font-size:15px; color:#888; pointer-events:none; }
-.yen-wrap .form-input { padding-left:26px; }
-
-/* ステータスボタン */
-.status-btns { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
-.status-btn { padding:12px; font-size:14px; font-weight:600; border-radius:10px; cursor:pointer; border:1px solid #ddd; transition:all .15s; }
-.status-btn.active-unvisit { background:#1a1a1a; color:#fff; border-color:#1a1a1a; }
-.status-btn.active-visit   { background:#27ae60; color:#fff; border-color:#27ae60; }
-.status-btn.inactive       { background:#f5f5f3; color:#888; }
-
-/* 週起算日ボタン群 */
-.weekday-btns { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
-.wd-btn { padding:12px 4px; font-size:14px; font-weight:600; border-radius:10px; cursor:pointer; border:1px solid #ddd; background:#f5f5f3; color:#888; transition:all .15s; text-align:center; }
-.wd-btn.active { background:#1a1a1a; color:#fff; border-color:#1a1a1a; }
-
-/* 締め日・支払日設定 */
-.cycle-setting-row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
-.cycle-setting-row label { font-size:13px; color:#555; white-space:nowrap; min-width:90px; }
-.cycle-input-wrap { display:flex; align-items:center; gap:6px; }
-.cycle-input { width:64px; padding:10px 10px; font-size:15px; font-weight:600; border:1px solid #ddd; border-radius:10px; outline:none; background:#fafafa; color:#1a1a1a; text-align:center; transition:border-color .15s; }
-.cycle-input:focus { border-color:#1a1a1a; background:#fff; }
-.cycle-unit { font-size:13px; color:#888; }
-.cycle-preview { background:#f0f9ff; border-radius:10px; padding:10px 14px; margin-top:4px; font-size:12px; color:#2980b9; line-height:1.8; }
-
-/* 共通ボタン */
-.btn-primary { width:100%; padding:14px; font-size:15px; font-weight:600; background:#1a1a1a; color:#fff; border:none; border-radius:12px; cursor:pointer; letter-spacing:.03em; margin-bottom:10px; }
-.btn-green   { width:100%; padding:14px; font-size:15px; font-weight:600; background:#27ae60; color:#fff; border:none; border-radius:12px; cursor:pointer; letter-spacing:.03em; margin-bottom:8px; }
-.btn-orange  { width:100%; padding:12px; font-size:14px; font-weight:600; background:#fff7ee; color:#e67e22; border:1px solid #f0c080; border-radius:12px; cursor:pointer; margin-bottom:8px; }
-.btn-map-full { width:100%; padding:11px; font-size:13px; font-weight:600; background:#4285F4; color:#fff; border:none; border-radius:10px; cursor:pointer; margin-top:8px; }
-.btn-map  { flex:1; padding:8px; font-size:12px; font-weight:600; background:#4285F4; color:#fff; border:none; border-radius:8px; cursor:pointer; }
-.btn-edit { flex:1; padding:8px; font-size:12px; font-weight:600; background:#f5f5f3; color:#1a1a1a; border:1px solid #ddd; border-radius:8px; cursor:pointer; }
-.btn-del  { flex:1; padding:8px; font-size:12px; font-weight:600; background:#fff0f0; color:#c0392b; border:1px solid #f5c6cb; border-radius:8px; cursor:pointer; }
-.error-msg { font-size:12px; color:#c0392b; text-align:center; min-height:18px; margin-bottom:8px; }
-.empty-msg { text-align:center; padding:40px; color:#bbb; font-size:14px; }
-
-/* 写真 */
-.photo-upload-area { border:2px dashed #ddd; border-radius:10px; padding:16px; text-align:center; cursor:pointer; background:#fafafa; }
-.photo-upload-area:active { border-color:#1a1a1a; background:#f0f0f0; }
-.pua-icon { font-size:32px; margin-bottom:6px; }
-.pua-text { font-size:13px; color:#888; line-height:1.5; }
-.pua-text strong { color:#1a1a1a; }
-#f-photo { display:none; }
-#f-photo-preview { display:none; width:100%; border-radius:10px; margin-top:10px; object-fit:cover; max-height:220px; }
-.btn-photo-remove { width:100%; margin-top:8px; padding:8px; font-size:12px; font-weight:600; background:#fff0f0; color:#c0392b; border:1px solid #f5c6cb; border-radius:8px; cursor:pointer; display:none; }
-
-/* 検索バー */
-.search-bar-wrap { display:flex; gap:8px; align-items:center; margin-bottom:10px; }
-.search-input { flex:1; padding:10px 14px 10px 36px; font-size:14px; border:1px solid #ddd; border-radius:22px; outline:none; background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23aaa' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398l3.85 3.85a1 1 0 0 0 1.415-1.415l-3.868-3.833zm-5.242 1.156a5 5 0 1 1 0-10 5 5 0 0 1 0 10z'/%3E%3C/svg%3E") no-repeat 12px center; transition:border-color .15s; }
-.search-input:focus { border-color:#1a1a1a; }
-.search-input::placeholder { color:#bbb; }
-.btn-search-clear { flex-shrink:0; padding:8px 12px; font-size:13px; background:#f5f5f3; border:1px solid #ddd; border-radius:20px; cursor:pointer; color:#888; display:none; }
-.btn-search-clear.show { display:block; }
-.search-result-bar { font-size:12px; color:#888; padding:4px 2px 8px; display:none; }
-.search-result-bar.show { display:block; }
-.search-hit { background:#fff8c5; }
-
-/* 郵便番号 */
-.zip-wrap { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
-.zip-input { width:130px; padding:11px 12px; font-size:15px; border:1px solid #ddd; border-radius:10px; outline:none; background:#fafafa; color:#1a1a1a; transition:border-color .15s; }
-.zip-input:focus { border-color:#1a1a1a; background:#fff; }
-.btn-zip-search { padding:11px 14px; font-size:13px; font-weight:600; background:#1a1a1a; color:#fff; border:none; border-radius:10px; cursor:pointer; white-space:nowrap; }
-.btn-zip-search:active { opacity:.8; }
-.zip-status { font-size:12px; margin-top:4px; min-height:16px; }
-.zip-status.ok  { color:#27ae60; }
-.zip-status.err { color:#c0392b; }
-.zip-status.loading { color:#888; }
-
-/* マップ画面 */
-.map-screen { display:none; }
-.map-header { display:flex; align-items:center; justify-content:space-between; background:#4285F4; color:#fff; padding:14px 16px; position:sticky; top:0; z-index:100; }
-.map-header-title { font-size:16px; font-weight:600; }
-.map-legend { display:flex; gap:12px; padding:8px 16px; background:#fff; border-bottom:1px solid #e8e8e6; font-size:11px; align-items:center; flex-wrap:wrap; }
-.legend-item { display:flex; align-items:center; gap:4px; }
-.legend-dot { width:12px; height:12px; border-radius:50%; flex-shrink:0; }
-.legend-dot.unvisited { background:#e74c3c; }
-.legend-dot.visited   { background:#27ae60; }
-#map-frame { width:100%; height:calc(100vh - 110px); border:none; }
-.map-pin-list { max-width:480px; margin:0 auto; padding:12px 16px; }
-.map-pin-item { display:flex; align-items:center; gap:10px; background:#fff; border-radius:10px; border:1px solid #e8e8e6; padding:10px 12px; margin-bottom:8px; }
-.map-pin-dot { width:14px; height:14px; border-radius:50%; flex-shrink:0; }
-.map-pin-dot.unvisited { background:#e74c3c; }
-.map-pin-dot.visited   { background:#27ae60; }
-.map-pin-info { flex:1; min-width:0; }
-.map-pin-name { font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.map-pin-addr { font-size:11px; color:#888; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.map-pin-open { font-size:11px; padding:5px 10px; background:#4285F4; color:#fff; border:none; border-radius:6px; cursor:pointer; white-space:nowrap; flex-shrink:0; }
-.map-empty { text-align:center; padding:40px; color:#bbb; font-size:14px; }
-.map-filter-bar { display:flex; gap:6px; padding:8px 16px; background:#f5f5f3; border-bottom:1px solid #e8e8e6; }
-.map-filter-btn { flex:1; padding:7px 4px; font-size:12px; font-weight:600; border:1px solid #ddd; border-radius:8px; background:#fff; color:#888; cursor:pointer; }
-.map-filter-btn.active { background:#1a1a1a; color:#fff; border-color:#1a1a1a; }
-
-/* 複数写真 */
-.photo-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-bottom:8px; }
-.photo-thumb { position:relative; aspect-ratio:1; border-radius:8px; overflow:hidden; background:#f0f0f0; }
-.photo-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
-.photo-thumb-del { position:absolute; top:3px; right:3px; width:20px; height:20px; border-radius:50%; background:rgba(0,0,0,.55); color:#fff; border:none; font-size:12px; cursor:pointer; display:flex; align-items:center; justify-content:center; line-height:1; }
-.photo-add-slot { aspect-ratio:1; border:2px dashed #ddd; border-radius:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; background:#fafafa; gap:2px; }
-.photo-add-slot:active { background:#f0f0f0; }
-.photo-add-icon { font-size:22px; }
-.photo-add-text { font-size:10px; color:#aaa; }
-.photo-count { font-size:11px; color:#888; margin-bottom:6px; }
-.card-photo-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:4px; margin-bottom:8px; }
-.card-photo-grid img { width:100%; aspect-ratio:1; object-fit:cover; border-radius:6px; cursor:pointer; }
-
-/* PWAヒント */
-.pwa-hint { background:#fff; border-radius:12px; border:1px solid #e8e8e6; padding:12px 14px; margin-bottom:12px; font-size:12px; color:#888; line-height:1.6; }
-.pwa-hint strong { color:#1a1a1a; }
-
-
-
-.plan-badge { display:inline-block; font-size:11px; font-weight:700; border-radius:20px; padding:3px 10px; margin-left:6px; vertical-align:middle; }
-.plan-badge.free { background:#f0f0f0; color:#888; }
-.plan-badge.paid { background:#f0c040; color:#7a5800; }
-.locked-overlay { position:relative; }
-.locked-overlay::after {
-  content:'🔒 有料プランで利用できます';
-  position:absolute; inset:0;
-  background:rgba(245,245,243,.92);
-  display:flex; align-items:center; justify-content:center;
-  font-size:13px; font-weight:700; color:#888;
-  border-radius:14px; pointer-events:none;
-}
-.lock-btn-wrap { margin-top:10px; }
-
-
-
-/* ===== アップデート通知 ===== */
-.update-toast {
-  position: fixed; top: 0; left: 50%; transform: translateX(-50%);
-  width: 100%; max-width: 480px; z-index: 8000;
-  background: #1a1a1a; color: #fff;
-  padding: 14px 16px; box-shadow: 0 4px 20px rgba(0,0,0,.3);
-  animation: slideDown .35s ease;
-}
-.update-toast-inner { display:flex; align-items:flex-start; gap:10px; }
-.update-toast-text { flex:1; font-size:13px; line-height:1.6; }
-.update-toast-title { font-size:14px; font-weight:700; margin-bottom:2px; }
-.update-toast-ver { font-size:11px; color:#aaa; margin-bottom:6px; }
-.update-toast-notes { font-size:12px; color:#ccc; }
-.update-toast-close { flex-shrink:0; background:none; border:none; color:#aaa; font-size:20px; cursor:pointer; padding:0 4px; line-height:1; }
-@keyframes slideDown { from { transform:translateX(-50%) translateY(-100%); } to { transform:translateX(-50%) translateY(0); } }
-
-/* ===== トライアル・ロック UI ===== */
-.trial-banner { background:#fff8e1; border:1px solid #ffe082; border-radius:12px; padding:12px 14px; margin-bottom:10px; font-size:12px; color:#7a5800; line-height:1.7; }
-.trial-banner strong { font-size:13px; display:block; margin-bottom:2px; }
-.trial-expired { background:#fff0f0; border-color:#ffcdd2; color:#c0392b; }
-.lock-screen { position:fixed; inset:0; background:rgba(26,26,26,.97); z-index:9000; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:32px 24px; }
-.lock-screen-inner { width:100%; max-width:400px; text-align:center; }
-.lock-icon { font-size:56px; margin-bottom:16px; }
-.lock-title { font-size:20px; font-weight:700; color:#fff; margin-bottom:8px; }
-.lock-desc { font-size:13px; color:#aaa; line-height:1.8; margin-bottom:24px; }
-.lock-input { width:100%; padding:14px 16px; font-size:16px; border:1px solid #555; border-radius:12px; background:#2a2a2a; color:#fff; text-align:center; letter-spacing:.1em; outline:none; margin-bottom:10px; }
-.lock-input:focus { border-color:#f0c040; }
-.lock-submit { width:100%; padding:14px; font-size:15px; font-weight:700; background:#f0c040; color:#7a5800; border:none; border-radius:12px; cursor:pointer; margin-bottom:10px; }
-.lock-error { font-size:12px; color:#e74c3c; min-height:18px; margin-bottom:8px; }
-.lock-close { font-size:13px; color:#666; background:none; border:none; cursor:pointer; padding:8px; }
-
-/* ===== モバイル最適化 ===== */
-@media (max-width: 360px) {
-  .stats { grid-template-columns: repeat(5,1fr); gap:2px; }
-  .stat-card { padding:8px 2px; }
-  .stat-num { font-size:14px; }
-  .stat-label { font-size:9px; }
-  .tabs { grid-template-columns: repeat(3,1fr); gap:3px; }
-  .tab-btn { font-size:10px; padding:8px 2px; }
-  .wrap { padding:10px; }
-}
-
-/* GitHub Pages / iframe 埋め込み対応 */
-html, body { -webkit-overflow-scrolling: touch; overflow-x: hidden; }
-input, button, textarea, select {
-  font-size: 16px !important; /* iOS自動ズーム防止 */
-  -webkit-appearance: none;
-  border-radius: 10px;
-}
-input[type="number"], input[type="tel"], input[type="date"],
-input[type="datetime-local"], input[type="search"] {
-  font-size: 16px !important;
-}
-.btn-primary, .btn-green, .btn-orange, .btn-map-full,
-.btn-map, .btn-edit, .btn-del, .status-btn, .tab-btn,
-.month-nav, .wd-btn, .map-filter-btn, .btn-zip-search,
-.btn-search-clear, .map-pin-open, .status-badge {
-  -webkit-tap-highlight-color: rgba(0,0,0,0.1);
-  touch-action: manipulation;
-  cursor: pointer;
-}
-/* ダウンロードリンク（モバイルで長押し保存しやすく） */
-#csv-dl-link {
-  display: block;
-  padding: 14px 16px;
-  font-size: 15px;
-  word-break: break-all;
-}
-
-</style>
 </head>
 <body>
 
 <!-- ===== ログイン画面 ===== -->
-<div id="login-screen" style="display:none;position:fixed;inset:0;background:#0d0d0f;z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;">
+<div id="login-screen" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;">
   <div style="width:100%;max-width:360px;text-align:center;">
     <div style="font-size:52px;margin-bottom:12px;">📋</div>
-    <div style="font-size:20px;font-weight:700;color:#c8a84b;margin-bottom:4px;">予定管理台帳</div>
-    <div style="font-size:12px;color:#666;margin-bottom:32px;">IDを入力してログインしてください</div>
-    <div style="background:#16161a;border:1px solid #2a2a32;border-radius:12px;padding:24px;">
-      <div style="font-size:11px;font-weight:700;color:#666;text-align:left;margin-bottom:6px;letter-spacing:.08em;">ユーザーID</div>
+    <div style="font-size:22px;font-weight:700;color:var(--blue-dark);margin-bottom:4px;letter-spacing:.03em;">予定管理台帳</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:28px;">IDを入力してログインしてください</div>
+    <div style="background:var(--card);border:2px solid var(--blue-lt);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow);">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-align:left;margin-bottom:6px;letter-spacing:.08em;">ユーザーID</div>
       <input type="text" id="login-uid" placeholder="例：DRV-001"
-        style="width:100%;padding:12px 14px;font-size:16px;background:#0d0d0f;border:1px solid #2a2a32;border-radius:8px;color:#e8e8ec;outline:none;margin-bottom:10px;"
+        style="width:100%;padding:12px 14px;font-size:16px;background:#f8fafc;border:2px solid var(--border);border-radius:var(--radius-sm);color:var(--text);outline:none;margin-bottom:12px;box-shadow:inset 0 1px 0 0 #e0ecf8;"
         onkeydown="if(event.key==='Enter')document.getElementById('login-pw-field').focus()" />
-      <div style="font-size:11px;font-weight:700;color:#666;text-align:left;margin-bottom:6px;letter-spacing:.08em;">パスワード</div>
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-align:left;margin-bottom:6px;letter-spacing:.08em;">パスワード</div>
       <input type="password" id="login-pw-field" placeholder="パスワードを入力"
-        style="width:100%;padding:12px 14px;font-size:16px;background:#0d0d0f;border:1px solid #2a2a32;border-radius:8px;color:#e8e8ec;outline:none;margin-bottom:16px;"
+        style="width:100%;padding:12px 14px;font-size:16px;background:#f8fafc;border:2px solid var(--border);border-radius:var(--radius-sm);color:var(--text);outline:none;margin-bottom:16px;box-shadow:inset 0 1px 0 0 #e0ecf8;"
         onkeydown="if(event.key==='Enter')doLogin()" />
       <button onclick="doLogin()"
-        style="width:100%;padding:13px;font-size:15px;font-weight:700;background:#c8a84b;color:#1a1400;border:none;border-radius:8px;cursor:pointer;">
+        style="width:100%;padding:14px;font-size:15px;font-weight:700;background:var(--blue);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;box-shadow:0 4px 0 0 var(--blue-dark);letter-spacing:.03em;">
         ログイン
       </button>
-      <div id="login-msg" style="font-size:12px;color:#e05555;margin-top:10px;min-height:16px;"></div>
+      <div id="login-msg" style="font-size:12px;color:var(--red);margin-top:10px;min-height:16px;"></div>
     </div>
-    <div id="login-hint" style="font-size:11px;color:#444;margin-top:16px;line-height:1.7;"></div>
+    <div id="login-hint" style="font-size:11px;color:var(--text3);margin-top:16px;line-height:1.7;"></div>
   </div>
 </div>
 
@@ -793,13 +493,28 @@ input[type="datetime-local"], input[type="search"] {
     </div>
     <div class="card">
       <p class="card-label">住所</p>
-      <div class="zip-wrap">
-        <input type="tel" id="f-zip" class="zip-input" placeholder="〒 1234567" maxlength="8" inputmode="numeric" oninput="onZipInput(this)" />
-        <button class="btn-zip-search" onclick="searchZip()">住所を検索</button>
+      <!-- 地図ピック -->
+      <div id="addr-map-wrap" style="border-radius:var(--radius-sm);overflow:hidden;border:2px solid var(--blue-lt);margin-bottom:8px;box-shadow:var(--shadow);">
+        <div style="background:var(--blue-pale);padding:8px 12px;font-size:11px;color:var(--blue-dark);font-weight:600;">
+          📍 地図をタップしてピンを置くと住所が自動入力されます
+        </div>
+        <div id="addr-pick-map" style="width:100%;height:220px;z-index:1;"></div>
       </div>
-      <div class="zip-status" id="zip-status"></div>
+      <div id="addr-pick-status" style="font-size:12px;color:var(--text3);margin-bottom:6px;min-height:16px;"></div>
       <input type="text" id="f-address" class="form-input" placeholder="例：福岡県福岡市博多区〇〇" />
-      <button class="btn-map-full" onclick="openMapFromInput()">Googleマップで確認</button>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button class="btn-map" onclick="openMapFromInput()" style="flex:1;">🗺 Googleマップで確認</button>
+        <button class="btn-edit" onclick="locateCurrentPosition()" style="flex:1;">📍 現在地から入力</button>
+      </div>
+      <!-- 郵便番号（補助入力として残す） -->
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--blue-pale);">
+        <p class="card-label" style="margin-bottom:6px;">郵便番号から住所を補完（任意）</p>
+        <div class="zip-wrap">
+          <input type="tel" id="f-zip" class="zip-input" placeholder="〒 1234567" maxlength="8" inputmode="numeric" oninput="onZipInput(this)" />
+          <button class="btn-zip-search" onclick="searchZip()">検索</button>
+        </div>
+        <div class="zip-status" id="zip-status"></div>
+      </div>
     </div>
     <div class="card"><p class="card-label">電話番号</p>
       <input type="tel" id="f-tel" class="form-input" placeholder="例：090-XXXX-XXXX" />
@@ -1367,6 +1082,128 @@ function selectRewardStatus(val) {
   document.getElementById('rbtn-1').className = 'status-btn '+(val===1?'active-visit':'inactive');
 }
 
+
+// ===== 住所ピック地図 =====
+let addrPickMap    = null;
+let addrPickMarker = null;
+
+function initAddrPickMap() {
+  if (addrPickMap) {
+    addrPickMap.invalidateSize();
+    return;
+  }
+  if (typeof L === 'undefined') {
+    // Leaflet を動的ロード
+    if (!document.getElementById('leaflet-css')) {
+      const link = document.createElement('link');
+      link.id = 'leaflet-css';
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(link);
+    }
+    if (!document.getElementById('leaflet-js')) {
+      const script = document.createElement('script');
+      script.id = 'leaflet-js';
+      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      script.onload = () => initAddrPickMap();
+      document.head.appendChild(script);
+    }
+    return;
+  }
+
+  // 初期表示位置：福岡市中心部
+  addrPickMap = L.map('addr-pick-map', { zoomControl: true }).setView([33.5902, 130.4017], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OSM</a>',
+    maxZoom: 19
+  }).addTo(addrPickMap);
+
+  // タップ/クリックでピンを置く
+  addrPickMap.on('click', async (e) => {
+    const { lat, lng } = e.latlng;
+    placeAddrPin(lat, lng);
+  });
+
+  // 現在地があれば移動
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(pos => {
+      addrPickMap.setView([pos.coords.latitude, pos.coords.longitude], 14);
+    }, () => {});
+  }
+}
+
+async function placeAddrPin(lat, lng) {
+  const statusEl = document.getElementById('addr-pick-status');
+  statusEl.style.color = 'var(--text3)';
+  statusEl.textContent = '住所を取得中...';
+
+  // マーカーを置く
+  if (addrPickMarker) addrPickMap.removeLayer(addrPickMarker);
+  addrPickMarker = L.marker([lat, lng], {
+    icon: L.divIcon({
+      className: '',
+      html: '<div style="width:32px;height:32px;border-radius:50% 50% 50% 0;background:var(--blue);border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4);transform:rotate(-45deg);"></div>',
+      iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -34]
+    })
+  }).addTo(addrPickMap);
+  addrPickMap.panTo([lat, lng]);
+
+  // Nominatim で逆ジオコーディング
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1&accept-language=ja`;
+    const res  = await fetch(url, { headers: { 'Accept-Language': 'ja' } });
+    const data = await res.json();
+
+    if (data && data.address) {
+      const a = data.address;
+      const pref  = a.state || a.province || '';
+      const city  = a.city  || a.town     || a.county || a.municipality || '';
+      const ward  = a.city_district || a.suburb || '';
+      const town  = a.neighbourhood || a.quarter || a.village || '';
+      const road  = a.road  || '';
+      const house = a.house_number || '';
+      const full  = pref + city + ward + town + road + house;
+
+      if (full.length > 3) {
+        document.getElementById('f-address').value = full;
+        statusEl.style.color = 'var(--green)';
+        statusEl.textContent = '✓ ' + full;
+        addrPickMarker.bindPopup('<b style="font-size:12px;">' + full + '</b>').openPopup();
+      } else {
+        statusEl.style.color = 'var(--text3)';
+        statusEl.textContent = '住所を特定できませんでした。手動で入力してください。';
+      }
+    }
+  } catch(e) {
+    statusEl.style.color = 'var(--red)';
+    statusEl.textContent = '住所の取得に失敗しました（通信を確認してください）';
+  }
+}
+
+function locateCurrentPosition() {
+  if (!navigator.geolocation) {
+    alert('お使いの端末では現在地取得に対応していません');
+    return;
+  }
+  const statusEl = document.getElementById('addr-pick-status');
+  statusEl.style.color = 'var(--text3)';
+  statusEl.textContent = '現在地を取得中...';
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const { latitude: lat, longitude: lng } = pos.coords;
+      if (addrPickMap) {
+        addrPickMap.setView([lat, lng], 16);
+        placeAddrPin(lat, lng);
+      }
+    },
+    () => {
+      statusEl.style.color = 'var(--red)';
+      statusEl.textContent = '現在地を取得できませんでした';
+    },
+    { enableHighAccuracy: true, timeout: 8000 }
+  );
+}
+
 // ===== 訪問フォーム =====
 function openForm(id) {
   editingVisitId = id||null;
@@ -1404,6 +1241,49 @@ function openForm(id) {
     selectStatus(0);
   }
   showScreen('form-screen');
+  // 住所ピック地図を初期化（Leaflet遅延ロード対応）
+  setTimeout(() => {
+    initAddrPickMap();
+    // 編集時：既存の住所があれば座標を検索してピンを表示
+    if (id) {
+      const addr = document.getElementById('f-address').value.trim();
+      if (addr) showExistingAddressPin(addr);
+    }
+  }, 200);
+}
+
+// 既存住所の座標を検索してピンを表示（編集時用）
+async function showExistingAddressPin(address) {
+  if (!addrPickMap) return;
+  const statusEl = document.getElementById('addr-pick-status');
+  statusEl.style.color = 'var(--text3)';
+  statusEl.textContent = '現在の住所を地図に表示中...';
+  try {
+    const url = 'https://nominatim.openstreetmap.org/search?q=' +
+                encodeURIComponent(address + ' 日本') +
+                '&format=json&limit=1&accept-language=ja';
+    const res  = await fetch(url, { headers: { 'Accept-Language': 'ja' } });
+    const data = await res.json();
+    if (data && data.length > 0) {
+      const lat = parseFloat(data[0].lat);
+      const lng = parseFloat(data[0].lon);
+      addrPickMap.setView([lat, lng], 16);
+      if (addrPickMarker) addrPickMap.removeLayer(addrPickMarker);
+      addrPickMarker = L.marker([lat, lng], {
+        icon: L.divIcon({
+          className: '',
+          html: '<div style="width:32px;height:32px;border-radius:50% 50% 50% 0;background:var(--blue);border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4);transform:rotate(-45deg);"></div>',
+          iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -34]
+        })
+      }).addTo(addrPickMap);
+      statusEl.style.color = 'var(--text3)';
+      statusEl.textContent = '現在の登録住所のピンを表示中（地図をタップで変更できます）';
+    } else {
+      statusEl.textContent = '';
+    }
+  } catch(e) {
+    statusEl.textContent = '';
+  }
 }
 function closeForm() { showScreen('main-screen'); renderList(); }
 function saveVisit() {
@@ -2804,33 +2684,53 @@ async function searchZip() {
   const statusEl = document.getElementById('zip-status');
   if (raw.length !== 7) {
     statusEl.className = 'zip-status err';
-    statusEl.textContent = '7桁の郵便番号を入力してください';
+    statusEl.textContent = '7桁の郵便番号を入力してください（ハイフン不要）';
     return;
   }
   statusEl.className = 'zip-status loading';
   statusEl.textContent = '検索中...';
+
+  const zip = raw.slice(0,3) + '-' + raw.slice(3);
+
+  // Nominatim（OpenStreetMap）で郵便番号→住所を検索
+  // 日本の郵便番号に対応、CORS制限なし
   try {
-    const res = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${raw}`);
+    const url = 'https://nominatim.openstreetmap.org/search?postalcode=' + raw +
+                '&country=Japan&format=json&addressdetails=1&limit=1&accept-language=ja';
+    const res  = await fetch(url, {
+      headers: { 'Accept-Language': 'ja', 'User-Agent': 'YoteiApp/1.0' }
+    });
     const data = await res.json();
-    if (data.status === 200 && data.results) {
-      const r = data.results[0];
-      const addr = (r.address1||'') + (r.address2||'') + (r.address3||'');
-      const current = document.getElementById('f-address').value;
-      if (!current.trim()) {
-        document.getElementById('f-address').value = addr;
-      } else if (!current.includes(r.address1||'')) {
-        document.getElementById('f-address').value = addr + ' ' + current;
+
+    if (data && data.length > 0) {
+      const a = data[0].address;
+      // Nominatimの住所フィールドを組み立て
+      const pref  = a.state       || a.province    || '';
+      const city  = a.city        || a.town         || a.county || a.municipality || '';
+      const ward  = a.city_district|| a.suburb      || '';
+      const town  = a.neighbourhood|| a.quarter     || a.village || '';
+      const full  = pref + city + ward + town;
+
+      if (full.length > 2) {
+        const current = document.getElementById('f-address').value;
+        if (!current.trim()) {
+          document.getElementById('f-address').value = full;
+        } else if (!current.includes(pref.slice(0,2))) {
+          document.getElementById('f-address').value = full + ' ' + current;
+        }
+        statusEl.className = 'zip-status ok';
+        statusEl.textContent = '✓ ' + full;
+        return;
       }
-      statusEl.className = 'zip-status ok';
-      statusEl.textContent = `✓ ${addr}`;
-    } else {
-      statusEl.className = 'zip-status err';
-      statusEl.textContent = '該当する住所が見つかりませんでした';
     }
-  } catch(e) {
-    statusEl.className = 'zip-status err';
-    statusEl.textContent = '検索に失敗しました（通信エラー）';
-  }
+  } catch(e) { /* フォールバックへ */ }
+
+  // フォールバック：Googleマップで郵便番号を開くリンクを表示
+  statusEl.className = 'zip-status err';
+  statusEl.innerHTML =
+    '自動取得できませんでした。' +
+    '<a href="https://maps.google.com/?q=' + encodeURIComponent('〒' + zip + ' 日本') + '" ' +
+    'target="_blank" style="color:var(--blue);font-weight:700;margin-left:4px;">Googleマップで確認 →</a>';
 }
 
 // ===== マップ画面（Leaflet + OpenStreetMap）=====
@@ -3195,6 +3095,24 @@ async function startApp() {
 }
 startApp();
 </script>
+
+
+<!-- ===== 地図から住所を選ぶ モーダル ===== -->
+<div id="pick-map-modal" style="display:none;position:fixed;inset:0;background:rgba(10,20,50,.6);z-index:8500;">
+  <div style="position:absolute;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;background:var(--card);border-radius:18px 18px 0 0;border:2px solid var(--blue-lt);box-shadow:0 -4px 0 0 var(--blue-lt);overflow:hidden;">
+    <div style="background:var(--blue);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 3px 0 0 var(--blue-dark);">
+      <span style="font-size:15px;font-weight:700;color:#fff;">📍 地図から住所を選ぶ</span>
+      <button onclick="closePickMap()" style="background:rgba(255,255,255,.2);border:none;border-radius:8px;width:32px;height:32px;color:#fff;font-size:16px;cursor:pointer;">✕</button>
+    </div>
+    <div id="pick-leaflet-map" style="width:100%;height:340px;"></div>
+    <div style="padding:14px 16px;">
+      <div id="pick-addr-preview" style="font-size:13px;color:var(--text2);background:var(--blue-pale);border:2px solid var(--blue-lt);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:10px;min-height:42px;display:flex;align-items:center;">
+        地図上をタップしてピンを置いてください
+      </div>
+      <button class="btn-primary" style="margin-bottom:0;" onclick="confirmPickAddress()">この住所を入力する</button>
+    </div>
+  </div>
+</div>
 
 <!-- ===== マップ画面 ===== -->
 <div id="map-screen" class="map-screen">

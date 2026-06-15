@@ -269,8 +269,10 @@ textarea.form-input{resize:none;line-height:1.6;}
 .lock-icon{font-size:56px;margin-bottom:16px;}
 .lock-title{font-size:20px;font-weight:700;color:#fff;margin-bottom:8px;}
 .lock-desc{font-size:13px;color:#9ab;line-height:1.8;margin-bottom:24px;}
-.lock-input{width:100%;padding:14px 16px;font-size:16px;border:2px solid #334;border-radius:var(--radius-sm);background:#1a2540;color:#fff;text-align:center;letter-spacing:.1em;outline:none;margin-bottom:10px;}
+.lock-input-wrap{position:relative;margin-bottom:10px;}
+.lock-input{width:100%;padding:14px 48px 14px 16px;font-size:16px;border:2px solid #334;border-radius:var(--radius-sm);background:#1a2540;color:#fff;text-align:center;letter-spacing:.1em;outline:none;}
 .lock-input:focus{border-color:var(--blue);}
+.lock-pw-toggle{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:18px;cursor:pointer;color:#9ab;padding:4px;}
 .lock-submit{width:100%;padding:14px;font-size:15px;font-weight:700;background:var(--blue);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;margin-bottom:10px;box-shadow:0 4px 0 0 var(--blue-dark);}
 .lock-submit:active{transform:translateY(4px);box-shadow:none;}
 .lock-error{font-size:12px;color:#f08;min-height:18px;margin-bottom:8px;}
@@ -335,9 +337,13 @@ button{-webkit-tap-highlight-color:rgba(55,138,221,.15);touch-action:manipulatio
         style="width:100%;padding:12px 14px;font-size:16px;background:#f8fafc;border:2px solid var(--border);border-radius:var(--radius-sm);color:var(--text);outline:none;margin-bottom:12px;box-shadow:inset 0 1px 0 0 #e0ecf8;"
         onkeydown="if(event.key==='Enter')document.getElementById('login-pw-field').focus()" />
       <div style="font-size:11px;font-weight:700;color:var(--text3);text-align:left;margin-bottom:6px;letter-spacing:.08em;">パスワード</div>
-      <input type="password" id="login-pw-field" placeholder="パスワードを入力"
-        style="width:100%;padding:12px 14px;font-size:16px;background:#f8fafc;border:2px solid var(--border);border-radius:var(--radius-sm);color:var(--text);outline:none;margin-bottom:16px;box-shadow:inset 0 1px 0 0 #e0ecf8;"
-        onkeydown="if(event.key==='Enter')doLogin()" />
+      <div style="position:relative;margin-bottom:16px;">
+        <input type="password" id="login-pw-field" placeholder="パスワードを入力"
+          style="width:100%;padding:12px 44px 12px 14px;font-size:16px;background:#f8fafc;border:2px solid var(--border);border-radius:var(--radius-sm);color:var(--text);outline:none;box-shadow:inset 0 1px 0 0 #e0ecf8;"
+          onkeydown="if(event.key==='Enter')doLogin()" />
+        <button type="button" onclick="togglePwVisibility('login-pw-field', this)"
+          style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:18px;cursor:pointer;color:var(--text3);padding:4px;">👁️</button>
+      </div>
       <button onclick="doLogin()"
         style="width:100%;padding:14px;font-size:15px;font-weight:700;background:var(--blue);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;box-shadow:0 4px 0 0 var(--blue-dark);letter-spacing:.03em;">
         ログイン
@@ -2216,6 +2222,9 @@ function showLockScreen(target) {
   desc.className = 'lock-desc';
   desc.innerHTML = '認証コードを入力すると<br><b>' + expFmt + '</b> まで設定画面を<br>ご利用いただけます。';
 
+  const pwWrap = document.createElement('div');
+  pwWrap.className = 'lock-input-wrap';
+
   const pwInput = document.createElement('input');
   pwInput.type        = 'password';
   pwInput.className   = 'lock-input';
@@ -2224,6 +2233,15 @@ function showLockScreen(target) {
   pwInput.addEventListener('keydown', function(e) {
     if (e.key === 'Enter') submitLockPassword(target);
   });
+
+  const pwToggle = document.createElement('button');
+  pwToggle.type        = 'button';
+  pwToggle.className   = 'lock-pw-toggle';
+  pwToggle.textContent = '👁️';
+  pwToggle.onclick     = function() { togglePwVisibility('lock-pw-input', pwToggle); };
+
+  pwWrap.appendChild(pwInput);
+  pwWrap.appendChild(pwToggle);
 
   const errEl = document.createElement('div');
   errEl.className = 'lock-error';
@@ -2242,7 +2260,7 @@ function showLockScreen(target) {
   inner.appendChild(icon);
   inner.appendChild(title);
   inner.appendChild(desc);
-  inner.appendChild(pwInput);
+  inner.appendChild(pwWrap);
   inner.appendChild(errEl);
   inner.appendChild(submitBtn);
   inner.appendChild(closeBtn);
@@ -2949,6 +2967,20 @@ function viewCardPhoto(src) {
 }
 
 // ===== 初期化 =====
+
+
+// ===== パスワード表示切替 =====
+function togglePwVisibility(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.textContent = '🙈';
+  } else {
+    input.type = 'password';
+    btn.textContent = '👁️';
+  }
+}
 
 // ===== ユーザーログイン管理 =====
 let currentUser = null; // { uid, name, password, expiryDate }
